@@ -1,122 +1,150 @@
 """
 Core Configuration - Environment-based Settings
-Segurança: Todas as configurações via variáveis de ambiente
+Todas as configurações centralizadas e seguras
 """
 
 import os
-from typing import List, Optional
-from pydantic import BaseSettings, validator
+from typing import List, Optional, Dict, Any
+from pydantic import BaseSettings, validator, Field
 from functools import lru_cache
 
 class Settings(BaseSettings):
-    """Application settings with environment-based configuration"""
+    """Application settings with comprehensive environment-based configuration"""
     
-    # Application
-    APP_NAME: str = "Sistema PRONAS/PCD"
-    APP_VERSION: str = "2.0.0"
-    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
-    DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
+    # Application Core
+    APP_NAME: str = Field("Sistema PRONAS/PCD", description="Application name")
+    APP_VERSION: str = Field("2.0.0", description="Application version")
+    ENVIRONMENT: str = Field("production", description="Environment (development/staging/production)")
+    DEBUG: bool = Field(False, description="Debug mode")
     
-    # Server
-    HOST: str = os.getenv("HOST", "0.0.0.0")
-    PORT: int = int(os.getenv("PORT", "8000"))
+    # Server Configuration
+    HOST: str = Field("0.0.0.0", description="Server host")
+    PORT: int = Field(8000, description="Server port")
+    RELOAD: bool = Field(False, description="Auto-reload on code changes")
+    WORKERS: int = Field(4, description="Number of worker processes")
     
-    # Database
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL", 
-        "postgresql://pronas_user:pronas_password@localhost:5432/pronas_pcd_db"
+    # Database Configuration
+    DATABASE_URL: str = Field(..., description="Database connection URL")
+    DATABASE_POOL_SIZE: int = Field(20, description="Database connection pool size")
+    DATABASE_MAX_OVERFLOW: int = Field(40, description="Database max overflow connections")
+    DATABASE_ECHO: bool = Field(False, description="Echo SQL queries")
+    DATABASE_CONNECT_TIMEOUT: int = Field(30, description="Database connection timeout")
+    DATABASE_COMMAND_TIMEOUT: int = Field(60, description="Database command timeout")
+    
+    # Redis Cache Configuration
+    REDIS_URL: str = Field("redis://localhost:6379/0", description="Redis connection URL")
+    CACHE_TTL_SHORT: int = Field(300, description="Short cache TTL (5 minutes)")
+    CACHE_TTL_MEDIUM: int = Field(1800, description="Medium cache TTL (30 minutes)")
+    CACHE_TTL_LONG: int = Field(7200, description="Long cache TTL (2 hours)")
+    REDIS_MAX_CONNECTIONS: int = Field(100, description="Maximum Redis connections")
+    
+    # Security & Authentication
+    JWT_SECRET_KEY: str = Field(..., description="JWT secret key")
+    JWT_ALGORITHM: str = Field("HS256", description="JWT algorithm")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(480, description="Access token expiry (8 hours)")
+    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(30, description="Refresh token expiry")
+    PASSWORD_RESET_EXPIRE_MINUTES: int = Field(15, description="Password reset token expiry")
+    PASSWORD_MIN_LENGTH: int = Field(8, description="Minimum password length")
+    
+    # CORS & Security Headers
+    ALLOWED_ORIGINS: List[str] = Field(
+        ["http://localhost:3000"],
+        description="Allowed CORS origins"
     )
-    DATABASE_POOL_SIZE: int = int(os.getenv("DATABASE_POOL_SIZE", "10"))
-    DATABASE_MAX_OVERFLOW: int = int(os.getenv("DATABASE_MAX_OVERFLOW", "20"))
-    DATABASE_ECHO: bool = os.getenv("DATABASE_ECHO", "false").lower() == "true"
-    
-    # Redis Cache
-    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    CACHE_TTL_SHORT: int = int(os.getenv("CACHE_TTL_SHORT", "300"))     # 5 minutes
-    CACHE_TTL_MEDIUM: int = int(os.getenv("CACHE_TTL_MEDIUM", "1800"))  # 30 minutes  
-    CACHE_TTL_LONG: int = int(os.getenv("CACHE_TTL_LONG", "7200"))      # 2 hours
-    
-    # Security & JWT
-    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "change-me-in-production")
-    JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
-    REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "30"))
-    PASSWORD_RESET_EXPIRE_MINUTES: int = int(os.getenv("PASSWORD_RESET_EXPIRE_MINUTES", "15"))
-    
-    # CORS & Security
-    ALLOWED_ORIGINS: List[str] = os.getenv(
-        "ALLOWED_ORIGINS", 
-        "http://localhost:3000,http://127.0.0.1:3000"
-    ).split(",")
-    ALLOWED_HOSTS: List[str] = os.getenv(
-        "ALLOWED_HOSTS",
-        "localhost,127.0.0.1"
-    ).split(",")
+    ALLOWED_HOSTS: List[str] = Field(
+        ["localhost", "127.0.0.1"],
+        description="Allowed hosts"
+    )
+    SECURE_COOKIES: bool = Field(True, description="Use secure cookies")
+    SAME_SITE_COOKIES: str = Field("strict", description="SameSite cookie policy")
     
     # Rate Limiting
-    RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "100"))
-    RATE_LIMIT_BURST: int = int(os.getenv("RATE_LIMIT_BURST", "200"))
+    RATE_LIMIT_PER_MINUTE: int = Field(100, description="Rate limit per minute")
+    RATE_LIMIT_BURST: int = Field(200, description="Rate limit burst")
+    RATE_LIMIT_ENABLED: bool = Field(True, description="Enable rate limiting")
     
-    # File Upload
-    MAX_FILE_SIZE_MB: int = int(os.getenv("MAX_FILE_SIZE_MB", "50"))
-    ALLOWED_FILE_EXTENSIONS: List[str] = os.getenv(
-        "ALLOWED_FILE_EXTENSIONS",
-        "pdf,doc,docx,xls,xlsx,jpg,jpeg,png,zip"
-    ).split(",")
-    UPLOAD_DIRECTORY: str = os.getenv("UPLOAD_DIRECTORY", "uploads")
-    
-    # Storage (MinIO/S3)
-    STORAGE_ENDPOINT: str = os.getenv("STORAGE_ENDPOINT", "localhost:9000")
-    STORAGE_ACCESS_KEY: str = os.getenv("STORAGE_ACCESS_KEY", "minioadmin")
-    STORAGE_SECRET_KEY: str = os.getenv("STORAGE_SECRET_KEY", "minioadmin")
-    STORAGE_BUCKET: str = os.getenv("STORAGE_BUCKET", "pronas-pcd-files")
-    STORAGE_SECURE: bool = os.getenv("STORAGE_SECURE", "false").lower() == "true"
+    # File Upload & Storage
+    MAX_FILE_SIZE_MB: int = Field(100, description="Maximum file size in MB")
+    ALLOWED_FILE_EXTENSIONS: List[str] = Field(
+        ["pdf", "doc", "docx", "xls", "xlsx", "jpg", "jpeg", "png", "zip"],
+        description="Allowed file extensions"
+    )
+    UPLOAD_DIRECTORY: str = Field("uploads", description="Upload directory")
+    STORAGE_ENDPOINT: str = Field("localhost:9000", description="MinIO endpoint")
+    STORAGE_ACCESS_KEY: str = Field("minioadmin", description="MinIO access key")
+    STORAGE_SECRET_KEY: str = Field("minioadmin", description="MinIO secret key")
+    STORAGE_BUCKET: str = Field("pronas-pcd-documents", description="Storage bucket")
+    STORAGE_SECURE: bool = Field(False, description="Use HTTPS for storage")
     
     # Email Configuration
-    SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
-    SMTP_USER: str = os.getenv("SMTP_USER", "")
-    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
-    EMAIL_FROM: str = os.getenv("EMAIL_FROM", "noreply@pronas-pcd.org")
+    SMTP_HOST: str = Field("smtp.gmail.com", description="SMTP host")
+    SMTP_PORT: int = Field(587, description="SMTP port")
+    SMTP_USER: str = Field("", description="SMTP user")
+    SMTP_PASSWORD: str = Field("", description="SMTP password")
+    EMAIL_FROM: str = Field("noreply@pronas-pcd.org", description="From email address")
+    EMAIL_TEMPLATES_DIR: str = Field("templates/email", description="Email templates directory")
     
     # AI Configuration
-    AI_ENABLED: bool = os.getenv("AI_ENABLED", "true").lower() == "true"
-    AI_MODEL: str = os.getenv("AI_MODEL", "gpt-4-turbo-preview")
-    AI_API_KEY: str = os.getenv("AI_API_KEY", "")
-    AI_CONFIDENCE_THRESHOLD: float = float(os.getenv("AI_CONFIDENCE_THRESHOLD", "0.75"))
-    AI_MAX_RETRIES: int = int(os.getenv("AI_MAX_RETRIES", "3"))
+    AI_ENABLED: bool = Field(True, description="Enable AI features")
+    AI_MODEL: str = Field("gpt-4-turbo-preview", description="AI model name")
+    AI_API_KEY: str = Field("", description="OpenAI API key")
+    AI_CONFIDENCE_THRESHOLD: float = Field(0.75, description="AI confidence threshold")
+    AI_MAX_RETRIES: int = Field(3, description="Maximum AI retries")
+    AI_TIMEOUT_SECONDS: int = Field(120, description="AI request timeout")
+    AI_MAX_TOKENS: int = Field(4000, description="Maximum AI tokens")
     
     # PRONAS/PCD Business Rules
-    SUBMISSION_PERIOD_DAYS: int = int(os.getenv("SUBMISSION_PERIOD_DAYS", "45"))
-    MAX_PROJECTS_PER_INSTITUTION: int = int(os.getenv("MAX_PROJECTS_PER_INSTITUTION", "3"))
-    MIN_CAPTACAO_PERCENTAGE: float = float(os.getenv("MIN_CAPTACAO_PERCENTAGE", "0.6"))
-    MAX_CAPTACAO_PERCENTAGE: float = float(os.getenv("MAX_CAPTACAO_PERCENTAGE", "1.2"))
-    MAX_CAPTACAO_ABSOLUTE: int = int(os.getenv("MAX_CAPTACAO_ABSOLUTE", "50000"))
-    CREDENTIALING_MONTHS: List[int] = [
-        int(month) for month in os.getenv("CREDENTIALING_MONTHS", "6,7").split(",")
-    ]
-    MIN_PROJECT_TIMELINE_MONTHS: int = int(os.getenv("MIN_PROJECT_TIMELINE_MONTHS", "6"))
-    MAX_PROJECT_TIMELINE_MONTHS: int = int(os.getenv("MAX_PROJECT_TIMELINE_MONTHS", "48"))
+    MAX_PROJECTS_PER_INSTITUTION: int = Field(3, description="Maximum projects per institution")
+    SUBMISSION_PERIOD_DAYS: int = Field(45, description="Submission period in days")
+    MIN_CAPTACAO_PERCENTAGE: float = Field(0.6, description="Minimum captacao percentage")
+    MAX_CAPTACAO_PERCENTAGE: float = Field(1.2, description="Maximum captacao percentage")
+    MAX_CAPTACAO_ABSOLUTE: int = Field(50000, description="Maximum captacao absolute value")
+    CREDENTIALING_MONTHS: List[int] = Field([6, 7], description="Credentialing allowed months")
+    MIN_PROJECT_TIMELINE_MONTHS: int = Field(6, description="Minimum project timeline")
+    MAX_PROJECT_TIMELINE_MONTHS: int = Field(48, description="Maximum project timeline")
     
-    # Logging
-    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
-    LOG_FILE: str = os.getenv("LOG_FILE", "logs/pronas_pcd.log")
-    LOG_MAX_SIZE: int = int(os.getenv("LOG_MAX_SIZE", "10485760"))  # 10MB
-    LOG_BACKUP_COUNT: int = int(os.getenv("LOG_BACKUP_COUNT", "5"))
+    # Logging Configuration
+    LOG_LEVEL: str = Field("INFO", description="Logging level")
+    LOG_FILE: str = Field("logs/pronas_pcd.log", description="Log file path")
+    LOG_MAX_SIZE: int = Field(10485760, description="Maximum log file size (10MB)")
+    LOG_BACKUP_COUNT: int = Field(5, description="Number of log backup files")
+    LOG_FORMAT: str = Field("detailed", description="Log format type")
     
-    # Monitoring
-    METRICS_ENABLED: bool = os.getenv("METRICS_ENABLED", "true").lower() == "true"
-    HEALTH_CHECK_INTERVAL: int = int(os.getenv("HEALTH_CHECK_INTERVAL", "30"))
+    # Monitoring & Metrics
+    METRICS_ENABLED: bool = Field(True, description="Enable metrics collection")
+    HEALTH_CHECK_INTERVAL: int = Field(30, description="Health check interval")
+    PROMETHEUS_ENABLED: bool = Field(True, description="Enable Prometheus metrics")
     
     # External APIs
-    VIACEP_API_URL: str = os.getenv("VIACEP_API_URL", "https://viacep.com.br/ws")
-    RECEITAWS_API_URL: str = os.getenv("RECEITAWS_API_URL", "https://www.receitaws.com.br/v1")
-    API_TIMEOUT_SECONDS: int = int(os.getenv("API_TIMEOUT_SECONDS", "30"))
+    VIACEP_API_URL: str = Field("https://viacep.com.br/ws", description="ViaCEP API URL")
+    RECEITAWS_API_URL: str = Field("https://www.receitaws.com.br/v1", description="ReceitaWS API URL")
+    API_TIMEOUT_SECONDS: int = Field(30, description="External API timeout")
+    API_MAX_RETRIES: int = Field(3, description="External API max retries")
     
-    # Default User Credentials (ONLY FOR DEVELOPMENT)
-    DEFAULT_ADMIN_USERNAME: str = os.getenv("DEFAULT_ADMIN_USERNAME", "admin")
-    DEFAULT_ADMIN_PASSWORD: str = os.getenv("DEFAULT_ADMIN_PASSWORD", "PronasPCD@2024")
-    DEFAULT_ADMIN_EMAIL: str = os.getenv("DEFAULT_ADMIN_EMAIL", "admin@pronas-pcd.org")
+    # Backup Configuration
+    BACKUP_ENABLED: bool = Field(True, description="Enable automatic backup")
+    BACKUP_RETENTION_DAYS: int = Field(30, description="Backup retention period")
+    BACKUP_SCHEDULE: str = Field("0 2 * * *", description="Backup cron schedule")
+    BACKUP_S3_ENABLED: bool = Field(False, description="Enable S3 backup")
+    BACKUP_S3_BUCKET: str = Field("pronas-pcd-backups", description="S3 backup bucket")
+    
+    # Default Admin User (Development Only)
+    DEFAULT_ADMIN_USERNAME: str = Field("admin", description="Default admin username")
+    DEFAULT_ADMIN_PASSWORD: str = Field("PronasPCD@Admin2024!", description="Default admin password")
+    DEFAULT_ADMIN_EMAIL: str = Field("admin@pronas-pcd.org", description="Default admin email")
+    
+    # Feature Flags
+    FEATURE_FLAGS: Dict[str, bool] = Field(
+        {
+            "ai_generation": True,
+            "real_time_monitoring": True,
+            "advanced_analytics": True,
+            "document_ocr": False,
+            "mobile_notifications": False,
+            "integration_apis": True
+        },
+        description="Feature flags"
+    )
     
     @validator("JWT_SECRET_KEY")
     def validate_jwt_secret(cls, v):
@@ -134,6 +162,18 @@ class Settings(BaseSettings):
     def validate_origins(cls, v):
         return [origin.strip() for origin in v if origin.strip()]
     
+    @validator("ENVIRONMENT")
+    def validate_environment(cls, v):
+        if v not in ["development", "staging", "production", "testing"]:
+            raise ValueError("ENVIRONMENT must be one of: development, staging, production, testing")
+        return v
+    
+    @validator("LOG_LEVEL")
+    def validate_log_level(cls, v):
+        if v.upper() not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
+            raise ValueError("LOG_LEVEL must be one of: DEBUG, INFO, WARNING, ERROR, CRITICAL")
+        return v.upper()
+    
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT.lower() == "production"
@@ -143,7 +183,11 @@ class Settings(BaseSettings):
         return self.ENVIRONMENT.lower() == "development"
     
     @property
-    def database_config(self) -> dict:
+    def is_testing(self) -> bool:
+        return self.ENVIRONMENT.lower() == "testing"
+    
+    @property
+    def database_config(self) -> Dict[str, Any]:
         """Database configuration for SQLAlchemy"""
         return {
             "url": self.DATABASE_URL,
@@ -152,11 +196,49 @@ class Settings(BaseSettings):
             "echo": self.DATABASE_ECHO and self.is_development,
             "pool_pre_ping": True,
             "pool_recycle": 3600,  # 1 hour
+            "connect_args": {
+                "connect_timeout": self.DATABASE_CONNECT_TIMEOUT,
+                "command_timeout": self.DATABASE_COMMAND_TIMEOUT,
+            }
+        }
+    
+    @property
+    def redis_config(self) -> Dict[str, Any]:
+        """Redis configuration"""
+        return {
+            "url": self.REDIS_URL,
+            "max_connections": self.REDIS_MAX_CONNECTIONS,
+            "retry_on_timeout": True,
+            "health_check_interval": 30,
+        }
+    
+    @property
+    def cors_config(self) -> Dict[str, Any]:
+        """CORS configuration"""
+        return {
+            "allow_origins": self.ALLOWED_ORIGINS,
+            "allow_credentials": True,
+            "allow_methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+            "allow_headers": ["*"],
+            "max_age": 86400,  # 24 hours
+        }
+    
+    @property
+    def security_headers(self) -> Dict[str, str]:
+        """Security headers configuration"""
+        return {
+            "X-Content-Type-Options": "nosniff",
+            "X-Frame-Options": "DENY",
+            "X-XSS-Protection": "1; mode=block",
+            "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+            "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';",
+            "Referrer-Policy": "strict-origin-when-cross-origin",
         }
     
     class Config:
         env_file = ".env"
         case_sensitive = True
+        env_file_encoding = 'utf-8'
 
 @lru_cache()
 def get_settings() -> Settings:
