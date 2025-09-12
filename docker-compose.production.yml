@@ -1,0 +1,268 @@
+# docker-compose.production.yml - Configuração de Produção
+version: '3.8'
+
+services:
+  # ==================== LOAD BALANCER ====================
+  traefik:
+    image: traefik:v2.10
+    container_name: pronas-traefik
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=admin@pronas-pcd.org"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-certificates:/letsencrypt
+    networks:
+      - pronas-network
+    restart: unless-stopped
+
+  # ==================== DATABASE CLUSTER ====================
+  postgres-primary:
+    image: postgres:15-alpine
+    container_name: pronas-postgres-primary
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_REPLICATION_MODE: master
+      POSTGRES_REPLICATION_USER: replicator
+      POSTGRES_REPLICATION_PASSWORD: ${REPLICATION_PASSWORD}
+    volumes:
+      - postgres-primary-data:/var/lib/postgresql/data
+      - ./docker/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./docker/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    networks:
+      - pronas-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  postgres-replica:
+    image: postgres:15-alpine
+    container_name: pronas-postgres-replica
+    environment:
+      POSTGRES_REPLICATION_MODE: slave
+      POSTGRES_MASTER_HOST: postgres-primary
+      POSTGRES_MASTER_PORT: 5432
+      POSTGRES_REPLICATION_USER: replicator
+      POSTGRES_REPLICATION_PASSWORD: ${REPLICATION_PASSWORD}
+    volumes:
+      - postgres-replica-data:/var/lib/postgresql/data
+    networks:
+      - pronas-network
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ==================== REDIS CLUSTER ====================
+  redis-master:
+    image: redis:7-alpine
+    container_name: pronas-redis-master
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-master-data:/data
+    networks:
+      - pronas-network
+    restart: unless-stopped
+
+  redis-slave:
+    image: redis:7-alpine
+    container_name: pronas-redis-slave
+    command: redis-server --slaveof redis-master 6379 --requirepass ${REDIS_PASSWORD} --masterauth ${REDIS_PASSWORD}
+    volumes:
+      - redis-slave-data:/data
+    networks:
+      - pronas-network
+    depends_on:
+      - redis-master
+    restart: unless-stopped
+
+  # ==================== BACKEND CLUSTER ====================
+  backend-1:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.production
+    container_name: pronas-backend-1
+    environment:
+      - INSTANCE_ID=backend-1
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@postgres-primary:5432/${DB_NAME}
+      - DATABASE_REPLICA_URL=postgresql://${DB_USER}:${DB_PASSWORD}@postgres-replica:5432/${DB_NAME}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis-master:6379/0
+      - REDIS_REPLICA_URL=redis://:${REDIS_PASSWORD}@redis-slave:6379/0
+    volumes:
+      - shared-uploads:/app/uploads
+      - shared-logs:/app/logs
+    networks:
+      - pronas-network
+    depends_on:
+      - postgres-primary
+      - redis-master
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.pronas-pcd.org`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
+  backend-2:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.production
+    container_name: pronas-backend-2
+    environment:
+      - INSTANCE_ID=backend-2
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@postgres-primary:5432/${DB_NAME}
+      - DATABASE_REPLICA_URL=postgresql://${DB_USER}:${DB_PASSWORD}@postgres-replica:5432/${DB_NAME}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis-master:6379/0
+      - REDIS_REPLICA_URL=redis://:${REDIS_PASSWORD}@redis-slave:6379/0
+    volumes:
+      - shared-uploads:/app/uploads
+      - shared-logs:/app/logs
+    networks:
+      - pronas-network
+    depends_on:
+      - postgres-primary
+      - redis-master
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.pronas-pcd.org`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
+  # ==================== FRONTEND ====================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.production
+    container_name: pronas-frontend
+    environment:
+      - NEXT_PUBLIC_API_URL=https://api.pronas-pcd.org
+    networks:
+      - pronas-network
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`pronas-pcd.org`) || Host(`www.pronas-pcd.org`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  # ==================== MONITORING ====================
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: pronas-prometheus
+    volumes:
+      - ./monitoring/prometheus/prometheus.prod.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - pronas-network
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=90d'
+      - '--web.enable-lifecycle'
+
+  grafana:
+    image: grafana/grafana-oss:10.0.0
+    container_name: pronas-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-piechart-panel
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_HOST=${SMTP_HOST}
+      - GF_SMTP_USER=${SMTP_USER}
+      - GF_SMTP_PASSWORD=${SMTP_PASSWORD}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - pronas-network
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`monitoring.pronas-pcd.org`)"
+      - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
+
+  # ==================== BACKUP SERVICE ====================
+  backup:
+    image: postgres:15-alpine
+    container_name: pronas-backup
+    environment:
+      - PGPASSWORD=${DB_PASSWORD}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - S3_BUCKET=${BACKUP_S3_BUCKET}
+    volumes:
+      - ./scripts/backup-production.sh:/backup.sh:ro
+      - backup-data:/backups
+    networks:
+      - pronas-network
+    depends_on:
+      - postgres-primary
+    restart: unless-stopped
+    command: |
+      sh -c '
+        apk add --no-cache aws-cli
+        echo "0 2 * * * /backup.sh full" | crontab -
+        echo "0 */6 * * * /backup.sh incremental" | crontab -
+        crond -f -l 2
+      '
+
+volumes:
+  traefik-certificates:
+  postgres-primary-data:
+  postgres-replica-data:
+  redis-master-data:
+  redis-slave-data:
+  prometheus-data:
+  grafana-data:
+  backup-data:
+  shared-uploads:
+  shared-logs:
+
+networks:
+  pronas-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
