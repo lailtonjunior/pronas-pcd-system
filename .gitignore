@@ -87,3 +87,6 @@ secrets/
 *.pem
 *.key
 *.crt
+
+# Backups
+backups/

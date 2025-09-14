@@ -3,14 +3,14 @@ FastAPI Dependencies
 Injeção de dependências centralizadas
 """
 
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
+from app.core.config.settings import get_settings
 from app.core.security.auth import verify_jwt_token
-from app.adapters.database.session import get_async_session
+from app.adapters.database.session import get_db_session
 from app.adapters.external.cache.redis_client import get_redis_client
 from app.domain.entities.user import User
 from app.domain.repositories.user import UserRepository
@@ -20,19 +20,13 @@ settings = get_settings()
 security = HTTPBearer()
 
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Injeção de dependência para sessão do banco de dados"""
-    async with get_async_session() as session:
-        yield session
-
-
 async def get_redis():
     """Injeção de dependência para cliente Redis"""
     return await get_redis_client()
 
 
 async def get_user_repository(
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_session)
 ) -> UserRepository:
     """Injeção de dependência para repositório de usuários"""
     return UserRepositoryImpl(db)

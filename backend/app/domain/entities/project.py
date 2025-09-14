@@ -3,7 +3,7 @@ Project Entity - Projetos PRONAS/PCD
 """
 
 from datetime import datetime, date
-from typing import Optional, List
+from typing import Optional
 from dataclasses import dataclass
 from enum import Enum
 from decimal import Decimal

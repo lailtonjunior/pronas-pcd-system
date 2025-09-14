@@ -12,14 +12,9 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_client import make_asgi_app
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.router import api_router
-from app.core.config import get_settings
-from app.core.exceptions.handlers import setup_exception_handlers
-from app.core.middleware.cors import setup_cors_middleware
-from app.core.middleware.logging import LoggingMiddleware
-from app.core.middleware.metrics import MetricsMiddleware
+from app.core.config.settings import get_settings
 from app.adapters.database.session import get_async_session
 from app.adapters.external.cache.redis_client import get_redis_client
 
@@ -71,14 +66,13 @@ app = FastAPI(
 )
 
 # Setup CORS
-setup_cors_middleware(app)
-
-# Adicionar middlewares
-app.add_middleware(LoggingMiddleware)
-app.add_middleware(MetricsMiddleware)
-
-# Setup exception handlers
-setup_exception_handlers(app)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[str(origin) for origin in settings.cors_origins],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Incluir routers
 app.include_router(api_router, prefix="/api/v1")
