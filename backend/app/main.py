@@ -8,9 +8,8 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import structlog
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from prometheus_client import make_asgi_app
 
 from app.api.v1.router import api_router
@@ -33,6 +32,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Verificar conexão com banco de dados
     try:
         async with get_async_session() as session:
+            # Use await para a execução da query assíncrona
             await session.execute("SELECT 1")
         logger.info("✅ Conexão com PostgreSQL estabelecida")
     except Exception as e:
@@ -91,38 +91,6 @@ async def health_check() -> dict:
         "service": "pronas-pcd-backend",
         "version": "1.0.0",
         "environment": settings.environment
-    }
-
-
-@app.get("/ready", tags=["Health"])
-async def readiness_check() -> dict:
-    """Readiness check com verificação de dependências"""
-    checks = {}
-    
-    # Verificar PostgreSQL
-    try:
-        async with get_async_session() as session:
-            await session.execute("SELECT 1")
-        checks["postgres"] = "healthy"
-    except Exception as e:
-        checks["postgres"] = f"unhealthy: {str(e)}"
-    
-    # Verificar Redis
-    try:
-        redis_client = await get_redis_client()
-        await redis_client.ping()
-        checks["redis"] = "healthy"
-    except Exception as e:
-        checks["redis"] = f"unhealthy: {str(e)}"
-    
-    # Status geral
-    is_healthy = all(status == "healthy" for status in checks.values())
-    
-    return {
-        "status": "ready" if is_healthy else "not_ready",
-        "checks": checks,
-        "service": "pronas-pcd-backend",
-        "version": "1.0.0"
     }
 
 
