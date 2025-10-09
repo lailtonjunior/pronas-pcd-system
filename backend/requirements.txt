@@ -42,3 +42,16 @@ rich==13.7.0
 
 # HTTP Client
 httpx==0.25.2
+
+# ----------------------------------
+# Dependências para IA e Vetorização
+# ----------------------------------
+# SDK oficial do Google para a API do Gemini
+google-generativeai==0.3.2
+
+# Biblioteca para interagir com a extensão pgvector no PostgreSQL
+pgvector==0.2.5
+
+# Biblioteca para processar arquivos PDF (para extrair texto das portarias)
+pypdf==4.0.1
+PyYAML

@@ -7,7 +7,7 @@ version: '3.8'
 services:
   # PostgreSQL Database - Primary Storage
   postgres:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     container_name: pronas-postgres-v2
     environment:
       POSTGRES_DB: ${DB_NAME:-pronas_pcd_db}
