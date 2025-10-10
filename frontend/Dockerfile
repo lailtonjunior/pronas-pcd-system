@@ -1,3 +1,5 @@
+# Arquivo: frontend/Dockerfile
+
 FROM node:18-alpine AS base
 
 # Instalar dependências apenas quando necessário
@@ -7,7 +9,7 @@ WORKDIR /app
 
 # Copiar arquivos de dependências
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm install
 
 # Rebuild do código fonte apenas quando necessário
 FROM base AS builder

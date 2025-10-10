@@ -116,7 +116,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-      target: production
       args:
         PYTHON_VERSION: 3.11-slim
     container_name: pronas-backend-v2
@@ -210,7 +209,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      target: production
+      target: runner
       args:
         NODE_VERSION: 18-alpine
     container_name: pronas-frontend-v2

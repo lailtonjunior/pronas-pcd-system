@@ -1,24 +1,16 @@
-/**
- * Layout principal da aplicação PRONAS/PCD
- */
+// Arquivo: frontend/src/app/layout.tsx
 
+import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { Toaster } from 'react-hot-toast'; // Para exibir notificações
 
 const inter = Inter({ subsets: ['latin'] });
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Sistema PRONAS/PCD',
   description: 'Sistema de Gestão para o Programa Nacional de Apoio à Atenção da Saúde da Pessoa com Deficiência',
-  keywords: 'PRONAS, PCD, pessoa com deficiência, saúde, ministério da saúde',
-  authors: [{ name: 'Sistema PRONAS/PCD' }],
-  creator: 'Sistema PRONAS/PCD',
-  publisher: 'Ministério da Saúde',
-  formatDetection: {
-    email: false,
-    address: false,
-    telephone: false,
-  },
 };
 
 export default function RootLayout({
@@ -29,9 +21,10 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={`${inter.className} bg-gray-50 text-gray-900 antialiased`}>
-        <div className="min-h-screen flex flex-col">
+        <AuthProvider>
           {children}
-        </div>
+          <Toaster position="top-right" />
+        </AuthProvider>
       </body>
     </html>
   );
