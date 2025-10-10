@@ -2,8 +2,8 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import DataTable from '@/components/ui/DataTable';
-import { Button } from '@/components/ui/button';
+import DataTable from '@/components/ui/dataTable';
+import { Button } from '@/components/ui/button'; // Corrigido
 import { apiClient } from '@/lib/api';
 import { Project } from '@/types';
 import { format } from 'date-fns';

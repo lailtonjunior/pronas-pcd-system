@@ -2,11 +2,10 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import DataTable from '@/components/ui/DataTable';
-import { Button } from '@/components/ui/button';
+import DataTable from '@/components/ui/dataTable'; // Corrigido
+import { Button } from '@/components/ui/button';     // Corrigido
 import { apiClient } from '@/lib/api';
 import { Institution } from '@/types';
-import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 
 export default function InstitutionsPage() {
@@ -24,22 +23,10 @@ export default function InstitutionsPage() {
   }, []);
 
   const columns = [
-    {
-      header: 'Nome da Instituição',
-      accessor: 'name' as keyof Institution,
-    },
-    {
-      header: 'CNPJ',
-      accessor: 'cnpj' as keyof Institution,
-    },
-    {
-      header: 'Status',
-      accessor: 'status' as keyof Institution,
-    },
-    {
-      header: 'Cidade/UF',
-      accessor: (item: Institution) => `${item.city}/${item.state}`,
-    },
+    { header: 'Nome da Instituição', accessor: 'name' as keyof Institution },
+    { header: 'CNPJ', accessor: 'cnpj' as keyof Institution },
+    { header: 'Status', accessor: 'status' as keyof Institution },
+    { header: 'Cidade/UF', accessor: (item: Institution) => `${item.city}/${item.state}` },
   ];
 
   return (
@@ -50,15 +37,12 @@ export default function InstitutionsPage() {
           Nova Instituição
         </Button>
       </div>
-
       <DataTable<Institution>
         columns={columns}
         data={institutions}
         isLoading={isLoading}
         renderActions={(institution) => (
-          <>
-            <Button variant="outline" size="sm">Editar</Button>
-          </>
+          <Button variant="outline" size="sm">Editar</Button>
         )}
       />
     </div>
