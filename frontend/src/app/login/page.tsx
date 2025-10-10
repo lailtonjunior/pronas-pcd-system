@@ -25,13 +25,9 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
-      // A API espera 'username' e 'password' em FormData
-      const formData = new FormData();
-      formData.append('username', data.email);
-      formData.append('password', data.password);
-
-      const response = await apiClient.login(formData);
-
+      // Corrigido para enviar o objeto 'data' diretamente
+      const response = await apiClient.login(data);
+      
       if (response.access_token && response.user) {
         login(response.access_token, response.user);
         toast.success('Login realizado com sucesso!');
@@ -39,8 +35,8 @@ export default function LoginPage() {
       } else {
         throw new Error('Resposta de login inválida.');
       }
-    } catch (error) {
-      toast.error('Email ou senha incorretos.');
+    } catch (error: any) {
+      toast.error(error.message || 'Email ou senha incorretos.');
       console.error(error);
     } finally {
       setIsLoading(false);
