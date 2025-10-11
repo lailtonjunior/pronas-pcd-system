@@ -1,9 +1,3 @@
-# Sistema PRONAS/PCD - Docker Compose Production Ready
-# Versão: 2.0.0
-# Conformidade: 100% Ministério da Saúde
-
-version: '3.8'
-
 services:
   # PostgreSQL Database - Primary Storage
   postgres:
@@ -13,12 +7,11 @@ services:
       POSTGRES_DB: ${DB_NAME:-pronas_pcd_db}
       POSTGRES_USER: ${DB_USER:-pronas_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-PronasPCD_2024_Secure!}
-      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=pt_BR.UTF-8 --lc-ctype=pt_BR.UTF-8"
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C.UTF-8 --lc-ctype=C.UTF-8"
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data/pgdata
       - ./database/init:/docker-entrypoint-initdb.d:ro
-      - ./database/backups:/backups
     ports:
       - "${DB_PORT:-5432}:5432"
     networks:
@@ -101,6 +94,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 60s
     deploy:
       resources:
         limits:
@@ -120,51 +114,32 @@ services:
         PYTHON_VERSION: 3.11-slim
     container_name: pronas-backend-v2
     environment:
-      # Core Configuration
       ENVIRONMENT: ${ENVIRONMENT:-production}
       DEBUG: ${DEBUG:-false}
-      
-      # Database
       DATABASE_URL: postgresql://${DB_USER:-pronas_user}:${DB_PASSWORD:-PronasPCD_2024_Secure!}@postgres:5432/${DB_NAME:-pronas_pcd_db}
       DATABASE_POOL_SIZE: 20
       DATABASE_MAX_OVERFLOW: 40
-      
-      # Cache
       REDIS_URL: redis://:${REDIS_PASSWORD:-PronasPCD_Redis_2024!}@redis:6379/0
-      
-      # Security
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-PronasPCD_JWT_Super_Secret_Key_2024_Change_In_Production!}
       ACCESS_TOKEN_EXPIRE_MINUTES: 480
       REFRESH_TOKEN_EXPIRE_DAYS: 30
-      
-      # Storage
       STORAGE_ENDPOINT: minio:9000
       STORAGE_ACCESS_KEY: ${MINIO_USER:-pronas_minio_admin}
       STORAGE_SECRET_KEY: ${MINIO_PASSWORD:-PronasPCD_MinIO_2024_Secure!}
       STORAGE_BUCKET: pronas-pcd-documents
       STORAGE_SECURE: false
-      
-      # AI Configuration
       AI_ENABLED: ${AI_ENABLED:-true}
       AI_API_KEY: ${OPENAI_API_KEY:-}
       AI_MODEL: gpt-4-turbo-preview
       AI_CONFIDENCE_THRESHOLD: 0.75
-      
-      # Business Rules
       MAX_PROJECTS_PER_INSTITUTION: 3
       MIN_CAPTACAO_PERCENTAGE: 0.6
       MAX_CAPTACAO_PERCENTAGE: 1.2
       MAX_CAPTACAO_ABSOLUTE: 50000
-      
-      # External APIs
       VIACEP_API_URL: https://viacep.com.br/ws
       RECEITAWS_API_URL: https://www.receitaws.com.br/v1
-      
-      # Security
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,https://pronas-pcd.org}
       RATE_LIMIT_PER_MINUTE: 100
-      
-      # Monitoring
       METRICS_ENABLED: true
     volumes:
       - ./backend:/app
@@ -427,53 +402,15 @@ services:
 # Persistent Volumes
 volumes:
   postgres_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ./data/postgres
   redis_data:
-    driver: local
-    driver_opts:
-      type: none  
-      o: bind
-      device: ./data/redis
   minio_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ./data/minio
   prometheus_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ./data/prometheus
   grafana_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind 
-      device: ./data/grafana
   loki_data:
-    driver: local
   backend_logs:
-    driver: local
   backup_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ./data/backups
   uploaded_files:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ./data/uploads
   frontend_static:
-    driver: local
 
 # Network Configuration
 networks:

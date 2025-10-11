@@ -1,48 +1,43 @@
-# Arquivo: frontend/Dockerfile
-
-FROM node:18-alpine AS base
-
-# Instalar dependências apenas quando necessário
-FROM base AS deps
-RUN apk add --no-cache libc6-compat
+# Estágio 1: Builder - Constrói a aplicação Next.js
+FROM node:18-alpine AS builder
 WORKDIR /app
 
-# Copiar arquivos de dependências
+# Copia os manifestos de pacotes e instala dependências (melhora o cache)
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm ci
 
-# Rebuild do código fonte apenas quando necessário
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# Copia TODO o código-fonte, incluindo a pasta /public
+# ESTA É A LINHA CRÍTICA QUE CORRIGE O ERRO
 COPY . .
 
-# Gerar build de produção
+# Constrói a aplicação para produção
 RUN npm run build
 
-# Imagem de produção
-FROM base AS runner
+# Estágio 2: Runner - Executa a aplicação otimizada
+FROM node:18-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
-
-# Criar usuário não-root
+# Cria um usuário e grupo não-root para segurança
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copiar arquivos necessários
+# Define o ambiente para produção
+ENV NODE_ENV=production
+
+# Copia os artefatos da build do estágio anterior
+# Esta linha agora funcionará, pois /app/public existe no builder
 COPY --from=builder /app/public ./public
+
+# Copia os arquivos da aplicação standalone
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Define o usuário não-root para executar a aplicação
 USER nextjs
 
 EXPOSE 3000
 
 ENV PORT 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:3000 || exit 1
-
+# Comando para iniciar o servidor Next.js
 CMD ["node", "server.js"]
